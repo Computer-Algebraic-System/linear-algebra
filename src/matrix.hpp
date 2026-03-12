@@ -145,7 +145,7 @@ public:
         return res;
     }
 
-    std::vector<T> gauss_elimination() {
+    std::vector<T> gauss_elimination() const {
         Matrix res = echelon_form();
         std::vector<T> solution(row);
 

@@ -12,7 +12,10 @@ namespace linalg {
     class Matrix;
     template <typename T>
     std::ostream& operator<<(std::ostream&, const Matrix<T>&);
+
+    std::map<algebra::Variable, algebra::Fraction> solve_linear_system(const std::vector<algebra::Equation>&);
 } // namespace linalg
 
 #include "src/detail.hpp"
 #include "src/matrix.hpp"
+#include "src/linalg.hpp"
