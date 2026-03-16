@@ -156,9 +156,9 @@ public:
             }
             if (flag) {
                 if (res[i, column - 1] == 0) {
-                    *GLOBAL_FORMATTING.out << "Infinitely many solutions\n";
+                    GLOBAL_FORMATTING << "Infinitely many solutions";
                 } else {
-                    *GLOBAL_FORMATTING.out << "No solution\n";
+                    GLOBAL_FORMATTING << "No solution";
                 }
                 return {};
             }
