@@ -10,7 +10,7 @@ namespace linalg {
     template <typename T>
     std::ostream& operator<<(std::ostream&, const Matrix<T>&);
 
-    std::map<algebra::Variable, algebra::Fraction> solve_linear_system(const std::vector<algebra::Equation>&);
+    std::map<algebra::Variable, algebra::Fraction> solve_linear_system(const std::vector<algebra::Equation>&, const std::string& = "gauss");
 } // namespace linalg
 
 #include "src/detail.hpp"

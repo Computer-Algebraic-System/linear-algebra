@@ -4,8 +4,8 @@ template <typename T>
 class linalg::Matrix {
 public:
     using value_type = T;
-    enum class Type { NORMAL, AUGMENTED } type = Type::NORMAL;
-    uint32_t row, column;
+    enum class Type { AUGMENTED, DETERMINANT, NORMAL } type = Type::NORMAL;
+    uint32_t type_param, row, column;
     std::vector<std::vector<T>> matrix;
 
     Matrix() = default;
@@ -82,143 +82,6 @@ public:
             }
         }
         return *this;
-    }
-
-    Matrix augment(const Matrix& mat) const {
-        assert(row == mat.row);
-        Matrix res(row, column + mat.column);
-
-        for (uint32_t i = 0; i < row; i++) {
-            for (uint32_t j = 0; j < column; j++) {
-                res[i, j] = matrix[i][j];
-            }
-            for (uint32_t j = 0; j < mat.column; j++) {
-                res[i, column + j] = mat[i, j];
-            }
-        }
-        res.type = Type::AUGMENTED;
-        return res;
-    }
-
-    T determinant() const {
-        assert(row == column);
-        GLOBAL_FORMATTING << "Determinant:" << std::endl;
-        Matrix mat = echelon_form();
-        T res = 1;
-
-        for (uint32_t i = 0; i < row; i++) {
-            res *= mat[i, i];
-        }
-        return res;
-    }
-
-
-    Matrix echelon_form() const {
-        Matrix res = *this;
-        uint32_t pivot = 0;
-        GLOBAL_FORMATTING << "Echelon Form:" << std::endl;
-
-        for (uint32_t cnt = 0; cnt < column && pivot < row; cnt++) {
-            uint32_t pivot_row = pivot;
-
-            while (pivot_row < row && res[pivot_row, cnt] == 0) {
-                pivot_row++;
-            }
-            if (pivot_row == row) {
-                continue;
-            }
-            if (pivot_row != pivot) {
-                for (uint32_t j = 0; j < column; j++) {
-                    std::swap(res[pivot_row, j], res[pivot, j]);
-                }
-            }
-            for (uint32_t i = pivot + 1; i < row; i++) {
-                T factor = res[i, cnt] / res[pivot, cnt];
-
-                for (uint32_t j = cnt; j < column; j++) {
-                    res[i, j] -= factor * res[pivot, j];
-                }
-            }
-            pivot++;
-            GLOBAL_FORMATTING << res << std::endl;
-        }
-        return res;
-    }
-
-    std::vector<T> gauss_elimination() const {
-        GLOBAL_FORMATTING << "Gauss Elimination:" << std::endl;
-        Matrix res = echelon_form();
-        std::vector<T> solution(row);
-
-        for (uint32_t i = 0; i < row; i++) {
-            bool flag = true;
-
-            for (uint32_t j = 0; j < column - 1; j++) {
-                if (res[i, j] != 0) {
-                    flag = false;
-                    break;
-                }
-            }
-            if (flag) {
-                if (res[i, column - 1] == 0) {
-                    GLOBAL_FORMATTING << "Infinitely many solutions" << std::endl;
-                } else {
-                    GLOBAL_FORMATTING << "No solution" << std::endl;
-                }
-                return {};
-            }
-        }
-        for (int i = row - 1; i >= 0; i--) {
-            T sum = res[i, column - 1];
-
-            for (uint32_t j = i + 1; j < row; j++) {
-                sum -= res[i, j] * solution[j];
-            }
-            solution[i] = sum / res[i, i];
-        }
-        return solution;
-    }
-
-    Matrix inverse() const {
-        assert(determinant() != 0);
-        GLOBAL_FORMATTING << "Inverse:" << std::endl;
-        Matrix res(row, column), aug_matrix = augment(make_identity(row));
-        GLOBAL_FORMATTING << aug_matrix;
-        aug_matrix = aug_matrix.echelon_form();
-
-        for (int i = row - 1; i >= 0; i--) {
-            T pivot = aug_matrix[i, i];
-            assert(pivot != 0);
-
-            for (uint32_t j = 0; j < row * 2; j++) {
-                aug_matrix[i, j] /= pivot;
-            }
-            for (uint32_t k = 0; k < i; k++) {
-                T factor = aug_matrix[k, i];
-
-                for (uint32_t j = 0; j < row * 2; j++) {
-                    aug_matrix[k, j] -= factor * aug_matrix[i, j];
-                }
-            }
-            GLOBAL_FORMATTING << aug_matrix;
-        }
-        for (uint32_t i = 0; i < row; i++) {
-            for (uint32_t j = 0; j < row; j++) {
-                res[i][j] = aug_matrix[i, j + row];
-            }
-        }
-        return res;
-    }
-
-    Matrix transpose() const {
-        Matrix res(column, row);
-
-        for (uint32_t i = 0; i < row; i++) {
-            for (uint32_t j = 0; j < column; j++) {
-                res[j, i] = matrix[i][j];
-            }
-        }
-        return res;
     }
 
     Matrix operator-() const {
@@ -374,21 +237,189 @@ public:
         return {A, Matrix<algebra::Variable>(std::vector(variables.begin(), variables.end()), variables.size(), 1), B};
     }
 
+    Matrix transpose() const {
+        Matrix res(column, row);
+
+        for (uint32_t i = 0; i < row; i++) {
+            for (uint32_t j = 0; j < column; j++) {
+                res[j, i] = matrix[i][j];
+            }
+        }
+        return res;
+    }
+
+    Matrix augment(const Matrix& mat) const {
+        assert(row == mat.row);
+        Matrix res(row, column + mat.column);
+
+        for (uint32_t i = 0; i < row; i++) {
+            for (uint32_t j = 0; j < column; j++) {
+                res[i, j] = matrix[i][j];
+            }
+            for (uint32_t j = 0; j < mat.column; j++) {
+                res[i, column + j] = mat[i, j];
+            }
+        }
+        res.type = Type::AUGMENTED;
+        res.type_param = mat.column;
+        return res;
+    }
+
+    T determinant() const {
+        assert(row == column);
+        GLOBAL_FORMATTING << "Determinant:" << std::endl;
+        Matrix temp = *this;
+        temp.type = Type::DETERMINANT;
+        Matrix mat = temp.echelon_form();
+        T res = 1;
+
+        for (uint32_t i = 0; i < row; i++) {
+            res *= mat[i, i];
+        }
+        return res;
+    }
+
+
+    Matrix echelon_form() const {
+        Matrix res = *this;
+        uint32_t pivot = 0;
+        GLOBAL_FORMATTING << "Echelon Form:" << std::endl;
+
+        for (uint32_t cnt = 0; cnt < column && pivot < row; cnt++) {
+            uint32_t pivot_row = pivot;
+
+            while (pivot_row < row && res[pivot_row, cnt] == 0) {
+                pivot_row++;
+            }
+            if (pivot_row == row) {
+                continue;
+            }
+            if (pivot_row != pivot) {
+                for (uint32_t j = 0; j < column; j++) {
+                    std::swap(res[pivot_row, j], res[pivot, j]);
+                }
+            }
+            for (uint32_t i = pivot + 1; i < row; i++) {
+                T factor = res[i, cnt] / res[pivot, cnt];
+
+                for (uint32_t j = cnt; j < column; j++) {
+                    res[i, j] -= factor * res[pivot, j];
+                }
+            }
+            pivot++;
+            GLOBAL_FORMATTING << res << std::endl;
+        }
+        return res;
+    }
+
+    std::vector<T> gauss_elimination() const {
+        GLOBAL_FORMATTING << "Gauss Elimination:" << std::endl;
+        Matrix res = echelon_form();
+        std::vector<T> solution(row);
+
+        for (uint32_t i = 0; i < row; i++) {
+            bool flag = true;
+
+            for (uint32_t j = 0; j < column - 1; j++) {
+                if (res[i, j] != 0) {
+                    flag = false;
+                    break;
+                }
+            }
+            if (flag) {
+                if (res[i, column - 1] == 0) {
+                    GLOBAL_FORMATTING << "Infinitely many solutions" << std::endl;
+                } else {
+                    GLOBAL_FORMATTING << "No solution" << std::endl;
+                }
+                return {};
+            }
+        }
+        for (int i = row - 1; i >= 0; i--) {
+            T sum = res[i, column - 1];
+
+            for (uint32_t j = i + 1; j < row; j++) {
+                sum -= res[i, j] * solution[j];
+            }
+            solution[i] = sum / res[i, i];
+        }
+        return solution;
+    }
+
+    uint32_t rank() const {
+        Matrix res = echelon_form();
+        return std::ranges::count(res.matrix, true, [](const std::vector<T>& row) -> bool {
+            return !std::ranges::all_of(row, [](const T& value) -> bool { return value == T(); });
+        });
+    }
+
+    std::vector<T> cramer_rule(const Matrix& rhs) const {
+        T det = determinant();
+        std::vector<T> solution;
+        solution.reserve(column);
+
+        for (uint32_t i = 0; i < column; i++) {
+            Matrix res = *this;
+
+            for (uint32_t j = 0; j < row; j++) {
+                res[j, i] = rhs[j, 0];
+            }
+            solution.push_back(res.determinant() / det);
+        }
+        return solution;
+    }
+
+    Matrix inverse() const {
+        assert(determinant() != 0);
+        GLOBAL_FORMATTING << "Inverse:" << std::endl;
+        GLOBAL_FORMATTING << *this;
+        Matrix res(row, column), aug_matrix = augment(make_identity(row));
+        GLOBAL_FORMATTING << aug_matrix;
+        aug_matrix = aug_matrix.echelon_form();
+
+        for (int i = row - 1; i >= 0; i--) {
+            T pivot = aug_matrix[i, i];
+            assert(pivot != 0);
+
+            for (uint32_t j = 0; j < row * 2; j++) {
+                aug_matrix[i, j] /= pivot;
+            }
+            for (uint32_t k = 0; k < i; k++) {
+                T factor = aug_matrix[k, i];
+
+                for (uint32_t j = 0; j < row * 2; j++) {
+                    aug_matrix[k, j] -= factor * aug_matrix[i, j];
+                }
+            }
+            GLOBAL_FORMATTING << aug_matrix;
+        }
+        for (uint32_t i = 0; i < row; i++) {
+            for (uint32_t j = 0; j < row; j++) {
+                res[i][j] = aug_matrix[i, j + row];
+            }
+        }
+        return res;
+    }
+
     std::string to_latex() const {
         std::string res;
 
         switch (type) {
+        case Type::AUGMENTED:
+            res.append("\\left(\n\\begin{array}{").append(column - type_param, 'c').append("|").append(type_param, 'c').append("}\n");
+            break;
+
+        case Type::DETERMINANT:
+            res.append("\\begin{vmatrix}\n");
+            break;
+
         case Type::NORMAL:
             res.append("\\begin{pmatrix}\n");
             break;
-
-        case Type::AUGMENTED:
-            res.append("\\left(\n\\begin{array}{").append(column - 1, 'c').append("|c}\n");
-            break;
         }
 
-        for (int i = 0; i < row; i++) {
-            for (int j = 0; j < column; j++) {
+        for (uint32_t i = 0; i < row; i++) {
+            for (uint32_t j = 0; j < column; j++) {
                 if constexpr (requires(const T& obj) { obj.to_latex(); }) {
                     res.append(matrix[i][j].to_latex());
                 } else {
@@ -402,15 +433,19 @@ public:
             }
         }
         switch (type) {
-        case Type::NORMAL:
-            res.append("\\end{pmatrix}\n");
+        case Type::AUGMENTED:
+            res.append("\\end{array}\n\\right)");
             break;
 
-        case Type::AUGMENTED:
-            res.append("\\end{array}\n\\right)\n");
+        case Type::DETERMINANT:
+            res.append("\\end{vmatrix}");
+            break;
+
+        case Type::NORMAL:
+            res.append("\\end{pmatrix}");
             break;
         }
-        return res;
+        return res.append("_{").append(std::to_string(row)).append("\\times ").append(std::to_string(column)).append("}\n");
     }
 };
 
@@ -426,11 +461,30 @@ namespace std {
                 padding = std::max(padding, static_cast<uint32_t>(format[i, j].size()) + 2);
             }
         }
-        const std::string empty_space(matrix.column * padding + matrix.column - 1, ' ');
-        const std::string border =
-            std::string("+").append(padding / 2, '-').append(empty_space.substr(2 * (padding / 2))).append(padding / 2, '-').append("+");
-        std::string res = border;
+        std::string empty_space = std::string(matrix.column * padding + matrix.column - 1, ' ');
+        std::string border;
 
+        switch (matrix.type) {
+        case linalg::Matrix<T>::Type::AUGMENTED:
+            empty_space[2 + padding * (matrix.column - matrix.type_param)] = '|';
+            border = std::string("+")
+                         .append(padding / 2, '-')
+                         .append(empty_space.substr(padding / 2, empty_space.size() - padding / 2 - 2))
+                         .append(padding / 2, '-')
+                         .append("+");
+            break;
+
+        case linalg::Matrix<T>::Type::DETERMINANT:
+            break;
+
+        case linalg::Matrix<T>::Type::NORMAL:
+            border = std::string("+")
+                         .append(padding / 2, '-')
+                         .append(empty_space.substr(std::ceil(padding / 2.0), empty_space.size() - padding / 2 - 2))
+                         .append(padding / 2, '-')
+                         .append("+");
+        }
+        std::string res = border;
         for (uint32_t i = 0; i < format.row; i++) {
             res.append("\n|");
 
@@ -438,14 +492,19 @@ namespace std {
                 const uint32_t remaining = padding - format[i, j].size();
                 res.append(std::string(remaining / 2, ' ')).append(format[i, j]).append(std::string(remaining - remaining / 2, ' '));
 
-                if (j < format.column - 1) {
+                if (matrix.type == linalg::Matrix<T>::Type::AUGMENTED && j == matrix.column - matrix.type_param - 1) {
+                    res.push_back('|');
+                }
+                if (matrix.type != linalg::Matrix<T>::Type::AUGMENTED  && j < format.column - 1) {
                     res.push_back(' ');
                 }
             }
-            res.append("|\n");
+            res.append("|");
 
             if (i < format.row - 1) {
-                res.append("|").append(empty_space).push_back('|');
+                res.append("\n|").append(empty_space).push_back('|');
+            } else if (matrix.type != linalg::Matrix<T>::Type::DETERMINANT) {
+                res.push_back('\n');
             }
         }
         return res.append(border).append(" ").append(std::to_string(matrix.row)).append("x").append(std::to_string(matrix.column)).append("\n");
@@ -474,7 +533,6 @@ template <typename T, typename U, typename R = decltype(std::declval<U>() * std:
 linalg::Matrix<R> operator*(const T& value, const linalg::Matrix<U>& matrix) {
     return matrix * value;
 }
-
 
 template <typename T, typename U, typename R = decltype(std::declval<T>() / std::declval<U>())>
     requires(!linalg::detail::is_matrix_v<T>)
