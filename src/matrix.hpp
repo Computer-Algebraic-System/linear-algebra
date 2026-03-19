@@ -451,63 +451,59 @@ public:
 
 namespace std {
     template <typename T>
-    string to_string(const linalg::Matrix<T>& matrix) {
+    std::string to_string(const linalg::Matrix<T>& matrix) {
         uint32_t padding = 0;
         linalg::Matrix<std::string> format(matrix.row, matrix.column);
 
         for (uint32_t i = 0; i < matrix.row; i++) {
             for (uint32_t j = 0; j < matrix.column; j++) {
                 format[i, j] = std::to_string(matrix[i, j]);
-                padding = std::max(padding, static_cast<uint32_t>(format[i, j].size()) + 2);
+                padding = std::max(padding, static_cast<uint32_t>(format[i, j].size()));
             }
         }
-        std::string empty_space = std::string(matrix.column * padding + matrix.column - 1, ' ');
-        std::string border;
+        padding += 2;
+        const uint32_t total_width = matrix.column * padding + (matrix.column - 1);
+        std::string middle(total_width, ' ');
 
-        switch (matrix.type) {
-        case linalg::Matrix<T>::Type::AUGMENTED:
-            empty_space[2 + padding * (matrix.column - matrix.type_param)] = '|';
-            border = std::string("+")
-                         .append(padding / 2, '-')
-                         .append(empty_space.substr(padding / 2, empty_space.size() - padding / 2 - 2))
-                         .append(padding / 2, '-')
-                         .append("+");
-            break;
-
-        case linalg::Matrix<T>::Type::DETERMINANT:
-            break;
-
-        case linalg::Matrix<T>::Type::NORMAL:
-            border = std::string("+")
-                         .append(padding / 2, '-')
-                         .append(empty_space.substr(std::ceil(padding / 2.0), empty_space.size() - padding / 2 - 2))
-                         .append(padding / 2, '-')
-                         .append("+");
+        if (matrix.type == linalg::Matrix<T>::Type::AUGMENTED) {
+            const uint32_t separation = matrix.column - matrix.type_param;
+            middle[separation * padding + (separation - 1)] = '|';
         }
-        std::string res = border;
+        const uint32_t left = padding / 2, right = padding - left;
+        std::string border("+"), empty_space("|"), res;
+        border.append(left, '-').append(middle.substr(left, total_width - left - right)).append(right, '-').push_back('+');
+        empty_space.append(middle).push_back('|');
+
+        if (matrix.type != linalg::Matrix<T>::Type::DETERMINANT) {
+            res = border;
+        }
         for (uint32_t i = 0; i < format.row; i++) {
             res.append("\n|");
 
             for (uint32_t j = 0; j < format.column; j++) {
-                const uint32_t remaining = padding - format[i, j].size();
-                res.append(std::string(remaining / 2, ' ')).append(format[i, j]).append(std::string(remaining - remaining / 2, ' '));
+                const std::string& val = format[i, j];
+                const uint32_t remaining = padding - val.size();
+                res.append(std::string(remaining / 2, ' ')).append(val).append(std::string(remaining - remaining / 2, ' '));
 
-                if (matrix.type == linalg::Matrix<T>::Type::AUGMENTED && j == matrix.column - matrix.type_param - 1) {
-                    res.push_back('|');
-                }
-                if (matrix.type != linalg::Matrix<T>::Type::AUGMENTED  && j < format.column - 1) {
-                    res.push_back(' ');
+                if (j < format.column - 1) {
+                    if (matrix.type == linalg::Matrix<T>::Type::AUGMENTED && j == matrix.column - matrix.type_param - 1) {
+                        res.push_back('|');
+                    } else {
+                        res.push_back(' ');
+                    }
                 }
             }
             res.append("|");
 
             if (i < format.row - 1) {
-                res.append("\n|").append(empty_space).push_back('|');
-            } else if (matrix.type != linalg::Matrix<T>::Type::DETERMINANT) {
-                res.push_back('\n');
+                res.append("\n").append(empty_space);
             }
         }
-        return res.append(border).append(" ").append(std::to_string(matrix.row)).append("x").append(std::to_string(matrix.column)).append("\n");
+
+        if (matrix.type != linalg::Matrix<T>::Type::DETERMINANT) {
+            res.append("\n").append(border);
+        }
+        return res.append(" ").append(std::to_string(matrix.row)).append("x").append(std::to_string(matrix.column)).append("\n");
     }
 } // namespace std
 

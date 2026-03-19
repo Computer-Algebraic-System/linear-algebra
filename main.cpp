@@ -7,7 +7,7 @@ algebra::detail::FormatSettings& out = linalg::GLOBAL_FORMATTING;
 
 int main() {
     // linalg::GLOBAL_FORMATTING.toggle_file("output.txt");
-    linalg::GLOBAL_FORMATTING.toggle_latex("latex.tex");
+    // linalg::GLOBAL_FORMATTING.toggle_latex("latex.tex");
     Variable x("x"), y("y"), z("z"), x1("x1"), x2("x2"), x3("x3"), x4("x4"), i1("i1"), i2("i2"), i3("i3");
 
     out << Matrix<Fraction>{{0.5, 2, 7}, {3, -1, 9}}.transpose() << std::endl;
