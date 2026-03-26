@@ -1,12 +1,12 @@
 #pragma once
 
-inline std::map<algebra::Variable, algebra::Fraction> linalg::solve_linear_system(const std::vector<algebra::Equation>& equations,
+inline std::map<algebra::Variable, algebra::Fraction> tensor::solve_linear_system(const std::vector<algebra::Equation>& equations,
                                                                                   const std::string& method) {
     std::map<algebra::Variable, algebra::Fraction> res;
     std::vector<algebra::Fraction> values;
 
     for (const algebra::Equation& equation : equations) {
-        GLOBAL_FORMATTING << equation;
+        GLOBAL_FORMATTING << equation << std::endl;
     }
     const auto [A, X, B] = Matrix<algebra::Variable>::from_equations(equations);
 
@@ -20,7 +20,7 @@ inline std::map<algebra::Variable, algebra::Fraction> linalg::solve_linear_syste
 
     for (int i = 0; i < size; i++) {
         res.emplace(X[i, 0], values[i]);
-        GLOBAL_FORMATTING << algebra::Equation(X[i, 0], values[i]);
+        GLOBAL_FORMATTING << algebra::Equation(X[i, 0], values[i]) << std::endl;
     }
     GLOBAL_FORMATTING << std::endl;
     return res;

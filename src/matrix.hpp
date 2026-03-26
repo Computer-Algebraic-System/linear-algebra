@@ -1,11 +1,11 @@
 #pragma once
 
-template <typename T>
-class linalg::Matrix {
+template <typename T = nullptr_t>
+class tensor::Matrix {
 public:
     using value_type = T;
-    enum class Type { AUGMENTED, DETERMINANT, NORMAL } type = Type::NORMAL;
-    uint32_t type_param, row, column;
+    enum class Type { AUGMENTED, DETERMINANT, NORMAL, VECTOR } type = Type::NORMAL;
+    uint32_t type_param = -1, row, column;
     std::vector<std::vector<T>> matrix;
 
     Matrix() = default;
@@ -40,7 +40,8 @@ public:
         }
     }
 
-    Matrix(const std::vector<T>& vec, const uint32_t row, const uint32_t column) : row(row), column(column), matrix(row, std::vector<T>(column)) {
+    Matrix(const std::vector<T>& vec, const uint32_t row, const uint32_t column, const Type type = Type::NORMAL) :
+        type(type), row(row), column(column), matrix(row, std::vector<T>(column)) {
         const uint32_t size = vec.size();
 
         for (uint32_t i = 0, k = 0; i < row; i++) {
@@ -148,9 +149,8 @@ public:
         return *this = *this * value;
     }
 
-    template <typename U,
-              typename R = decltype(std::declval<T>() * std::declval<detail::unwrap_matrix_t<U>>() +
-                                    std::declval<T>() * std::declval<detail::unwrap_matrix_t<U>>())>
+    template <typename U, typename t = decltype(std::declval<T>() * std::declval<detail::unwrap_matrix_t<U>>()),
+              typename R = decltype(std::declval<t>() + std::declval<t>())>
     Matrix<R> operator*(const U& value) const {
         if constexpr (detail::is_matrix_v<U>) {
             assert(column == value.row);
@@ -174,6 +174,19 @@ public:
             }
             return res;
         }
+    }
+
+    template <typename U, typename t = decltype(std::declval<T>() * std::declval<U>()), typename R = decltype(std::declval<t>() + std::declval<t>())>
+    Vector<R> operator*(const Vector<U>& value) const {
+        assert(column == value.size);
+        Vector<R> res(row);
+
+        for (uint32_t i = 0; i < row; i++) {
+            for (uint32_t j = 0; j < column; j++) {
+                res[i] += matrix[i][j] * value[j];
+            }
+        }
+        return res;
     }
 
     template <typename U>
@@ -214,7 +227,6 @@ public:
         return res;
     }
 
-
     static std::tuple<Matrix<algebra::Fraction>, Matrix<algebra::Variable>, Matrix<algebra::Fraction>>
     from_equations(const std::vector<algebra::Equation>& equations) {
         const uint32_t size = equations.size();
@@ -222,7 +234,9 @@ public:
         std::set<algebra::Variable> variables;
 
         for (uint32_t i = 0; i < size; i++) {
-            for (const algebra::Variable& variable : equations[i].lhs.expression) {
+            assert(equations[i].lhs.denominator.is_fraction());
+
+            for (const algebra::Variable& variable : equations[i].lhs.numerator.terms) {
                 variables.insert(variable.basis());
             }
             B[i, 0] = static_cast<algebra::Fraction>(equations[i].rhs);
@@ -230,11 +244,39 @@ public:
         Matrix<algebra::Fraction> A(size, variables.size());
 
         for (uint32_t i = 0; i < size; i++) {
-            for (const algebra::Variable& variable : equations[i].lhs.expression) {
-                A[i, std::distance(variables.begin(), variables.find(variable.basis()))] = variable.coefficient;
+            for (const algebra::Variable& variable : equations[i].lhs.numerator.terms) {
+                A[i, std::distance(variables.begin(), variables.find(variable.basis()))] =
+                    variable.coefficient / equations[i].lhs.denominator.terms.front().coefficient;
             }
         }
         return {A, Matrix<algebra::Variable>(std::vector(variables.begin(), variables.end()), variables.size(), 1), B};
+    }
+
+    template <typename U>
+    static Matrix<U> differentiate(const U& scalar, const Matrix<algebra::Variable>& wrt) {
+        Matrix<U> res(wrt.row, wrt.column);
+
+        if constexpr (requires(const T& obj, const algebra::Variable& variable) { obj.differentiate(variable); }) {
+            for (uint32_t i = 0; i < wrt.row; i++) {
+                for (uint32_t j = 0; j < wrt.column; j++) {
+                    res[i, j] = scalar.differentiate(wrt[i, j]);
+                }
+            }
+        }
+        return res;
+    }
+
+    Matrix differentiate(const algebra::Variable& wrt) const {
+        Matrix res(row, column);
+
+        if constexpr (requires(const T& obj, const algebra::Variable& variable) { obj.differentiate(variable); }) {
+            for (uint32_t i = 0; i < row; i++) {
+                for (uint32_t j = 0; j < column; j++) {
+                    res[i, j] = matrix[i][j].differentiate(wrt);
+                }
+            }
+        }
+        return res;
     }
 
     Matrix transpose() const {
@@ -413,6 +455,7 @@ public:
             res.append("\\begin{vmatrix}\n");
             break;
 
+        case Type::VECTOR:
         case Type::NORMAL:
             res.append("\\begin{pmatrix}\n");
             break;
@@ -441,19 +484,23 @@ public:
             res.append("\\end{vmatrix}");
             break;
 
+        case Type::VECTOR:
         case Type::NORMAL:
             res.append("\\end{pmatrix}");
             break;
         }
-        return res.append("_{").append(std::to_string(row)).append("\\times ").append(std::to_string(column)).append("}\n");
+        if (type != Type::VECTOR) {
+            return res.append("_{").append(std::to_string(row)).append("\\times ").append(std::to_string(column)).append("}\n");
+        }
+        return res;
     }
 };
 
 namespace std {
     template <typename T>
-    std::string to_string(const linalg::Matrix<T>& matrix) {
+    std::string to_string(const tensor::Matrix<T>& matrix) {
         uint32_t padding = 0;
-        linalg::Matrix<std::string> format(matrix.row, matrix.column);
+        tensor::Matrix<std::string> format(matrix.row, matrix.column);
 
         for (uint32_t i = 0; i < matrix.row; i++) {
             for (uint32_t j = 0; j < matrix.column; j++) {
@@ -465,16 +512,16 @@ namespace std {
         const uint32_t total_width = matrix.column * padding + (matrix.column - 1);
         std::string middle(total_width, ' ');
 
-        if (matrix.type == linalg::Matrix<T>::Type::AUGMENTED) {
+        if (matrix.type == tensor::Matrix<T>::Type::AUGMENTED) {
             const uint32_t separation = matrix.column - matrix.type_param;
             middle[separation * padding + (separation - 1)] = '|';
         }
         const uint32_t left = padding / 2, right = padding - left;
-        std::string border("+"), empty_space("|"), res;
-        border.append(left, '-').append(middle.substr(left, total_width - left - right)).append(right, '-').push_back('+');
+        std::string res, border("+"), empty_space("|");
+        border.append(left, '-').append(total_width - left - right, ' ').append(right, '-').push_back('+');
         empty_space.append(middle).push_back('|');
 
-        if (matrix.type != linalg::Matrix<T>::Type::DETERMINANT) {
+        if (matrix.type != tensor::Matrix<T>::Type::DETERMINANT) {
             res = border;
         }
         for (uint32_t i = 0; i < format.row; i++) {
@@ -486,7 +533,7 @@ namespace std {
                 res.append(std::string(remaining / 2, ' ')).append(val).append(std::string(remaining - remaining / 2, ' '));
 
                 if (j < format.column - 1) {
-                    if (matrix.type == linalg::Matrix<T>::Type::AUGMENTED && j == matrix.column - matrix.type_param - 1) {
+                    if (matrix.type == tensor::Matrix<T>::Type::AUGMENTED && j == matrix.column - matrix.type_param - 1) {
                         res.push_back('|');
                     } else {
                         res.push_back(' ');
@@ -500,40 +547,43 @@ namespace std {
             }
         }
 
-        if (matrix.type != linalg::Matrix<T>::Type::DETERMINANT) {
+        if (matrix.type != tensor::Matrix<T>::Type::DETERMINANT) {
             res.append("\n").append(border);
         }
-        return res.append(" ").append(std::to_string(matrix.row)).append("x").append(std::to_string(matrix.column)).append("\n");
+        if (matrix.type != tensor::Matrix<T>::Type::VECTOR) {
+            res.append(" ").append(std::to_string(matrix.row)).append("x").append(std::to_string(matrix.column));
+        }
+        return res.append("\n");
     }
 } // namespace std
 
 template <typename T>
-std::ostream& linalg::operator<<(std::ostream& out, const Matrix<T>& matrix) {
+std::ostream& tensor::operator<<(std::ostream& out, const Matrix<T>& matrix) {
     return out << std::to_string(matrix);
 }
 
 template <typename T, typename U, typename R = decltype(std::declval<U>() + std::declval<T>())>
-    requires(!linalg::detail::is_matrix_v<T>)
-linalg::Matrix<R> operator+(const T& value, const linalg::Matrix<U>& matrix) {
+    requires(!tensor::detail::is_matrix_v<T>)
+tensor::Matrix<R> operator+(const T& value, const tensor::Matrix<U>& matrix) {
     return matrix + value;
 }
 
 template <typename T, typename U, typename R = decltype(-std::declval<U>() + std::declval<T>())>
-    requires(!linalg::detail::is_matrix_v<T>)
-linalg::Matrix<R> operator-(const T& value, const linalg::Matrix<U>& matrix) {
+    requires(!tensor::detail::is_matrix_v<T>)
+tensor::Matrix<R> operator-(const T& value, const tensor::Matrix<U>& matrix) {
     return -matrix + value;
 }
 
 template <typename T, typename U, typename R = decltype(std::declval<U>() * std::declval<T>())>
-    requires(!linalg::detail::is_matrix_v<T>)
-linalg::Matrix<R> operator*(const T& value, const linalg::Matrix<U>& matrix) {
+    requires(!tensor::detail::is_matrix_v<T>)
+tensor::Matrix<R> operator*(const T& value, const tensor::Matrix<U>& matrix) {
     return matrix * value;
 }
 
 template <typename T, typename U, typename R = decltype(std::declval<T>() / std::declval<U>())>
-    requires(!linalg::detail::is_matrix_v<T>)
-linalg::Matrix<R> operator/(const T& value, const linalg::Matrix<U>& matrix) {
-    linalg::Matrix<R> res(matrix.row, matrix.column);
+    requires(!tensor::detail::is_matrix_v<T>)
+tensor::Matrix<R> operator/(const T& value, const tensor::Matrix<U>& matrix) {
+    tensor::Matrix<R> res(matrix.row, matrix.column);
 
     for (uint32_t i = 0; i < matrix.row; i++) {
         for (uint32_t j = 0; j < matrix.column; j++) {

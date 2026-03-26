@@ -1,6 +1,6 @@
 #pragma once
 
-namespace linalg::detail {
+namespace tensor::detail {
     template <typename>
     struct is_matrix : std::false_type {};
 

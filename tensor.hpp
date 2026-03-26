@@ -2,8 +2,13 @@
 #include <set>
 #include "algebra/algebra.hpp"
 
-namespace linalg {
+namespace tensor {
     inline algebra::detail::FormatSettings& GLOBAL_FORMATTING = algebra::GLOBAL_FORMATTING;
+
+    template <typename>
+    class Vector;
+    template <typename T>
+    std::ostream& operator<<(std::ostream&, const Vector<T>&);
 
     template <typename>
     class Matrix;
@@ -15,4 +20,5 @@ namespace linalg {
 
 #include "src/detail.hpp"
 #include "src/matrix.hpp"
-#include "src/linalg.hpp"
+#include "src/vector.hpp"
+#include "src/tensor.hpp"
