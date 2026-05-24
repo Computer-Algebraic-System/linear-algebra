@@ -6,9 +6,10 @@ using namespace tensor;
 algebra::detail::FormatSettings& out = tensor::GLOBAL_FORMATTING;
 
 int main() {
-    // tensor::GLOBAL_FORMATTING.toggle_file("output.txt");
-    // tensor::GLOBAL_FORMATTING.toggle_latex("latex.tex");
-    tensor::GLOBAL_FORMATTING.toggle_html("output.html");
+    // tensor::GLOBAL_FORMATTING.toggle_file();
+    // tensor::GLOBAL_FORMATTING.toggle_latex();
+    // tensor::GLOBAL_FORMATTING.toggle_html();
+    // tensor::GLOBAL_FORMATTING.toggle_manim("output", algebra::detail::FormatSettings::Quality::UHD_2160P60);
     Variable x("x"), y("y"), z("z"), x1("x1"), x2("x2"), x3("x3"), x4("x4"), i1("i1"), i2("i2"), i3("i3");
 
     out << Matrix<Fraction>{{0.5, 2, 7}, {3, -1, 9}}.transpose();
