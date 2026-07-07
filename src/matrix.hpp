@@ -229,19 +229,18 @@ public:
         return res;
     }
 
-    static std::tuple<Matrix<algebra::Fraction>, Matrix<algebra::Variable>, Matrix<algebra::Fraction>>
-    from_equations(const std::vector<algebra::Equation>& equations) {
+    static std::tuple<Matrix<double>, Matrix<algebra::Variable>, Matrix<double>> from_equations(const std::vector<algebra::Equation>& equations) {
         const uint32_t size = equations.size();
-        Matrix<algebra::Fraction> B(size, 1);
+        Matrix<double> B(size, 1);
         std::set<algebra::Variable> variables;
 
         for (uint32_t i = 0; i < size; i++) {
             for (const algebra::Variable& variable : equations[i].lhs.terms) {
                 variables.insert(variable.basis());
             }
-            B[i, 0] = static_cast<algebra::Fraction>(equations[i].rhs);
+            B[i, 0] = static_cast<double>(equations[i].rhs);
         }
-        Matrix<algebra::Fraction> A(size, variables.size());
+        Matrix<double> A(size, variables.size());
 
         for (uint32_t i = 0; i < size; i++) {
             for (const algebra::Variable& variable : equations[i].lhs.terms) {
@@ -271,7 +270,7 @@ public:
     Matrix differentiate(const algebra::Variable& wrt, const bool origin = true) const {
         Matrix res(row, column);
 
-        if constexpr (requires(const T& obj, const algebra::Variable& variable, const bool origin) { obj.differentiate(variable, origin); }) {
+        if constexpr (requires(const T& obj, const algebra::Variable& variable, const bool org) { obj.differentiate(variable, org); }) {
             for (uint32_t i = 0; i < row; i++) {
                 for (uint32_t j = 0; j < column; j++) {
                     res[i, j] = matrix[i][j].differentiate(wrt, false);
@@ -357,6 +356,10 @@ public:
 
                 for (uint32_t j = cnt; j < column; j++) {
                     res[i, j] -= factor * res[pivot, j];
+
+                    if (std::abs(res[i, j]) < 1e-12) {
+                        res[i, j] = 0;
+                    }
                 }
             }
             pivot++;
@@ -474,8 +477,8 @@ public:
 
         for (uint32_t i = 0; i < row; i++) {
             for (uint32_t j = 0; j < column; j++) {
-                if constexpr (requires(const T& obj) { obj.to_latex(); }) {
-                    res.append(matrix[i][j].to_latex());
+                if constexpr (requires(const T& obj) { algebra::detail::LaTeX(obj); }) {
+                    res.append(algebra::detail::LaTeX(matrix[i][j]).to_latex());
                 } else {
                     res.append(std::to_string(matrix[i][j]));
                 }
@@ -532,8 +535,8 @@ public:
                 } else {
                     res.append("<mtd>");
                 }
-                if constexpr (requires(const T& obj) { obj.to_html(); }) {
-                    res.append(matrix[i][j].to_html());
+                if constexpr (requires(const T& obj) { algebra::detail::HTML(obj); }) {
+                    res.append(algebra::detail::HTML(matrix[i][j]).to_html());
                 } else {
                     res.append(std::to_string(matrix[i][j]));
                 }
@@ -644,7 +647,11 @@ namespace std {
 
         for (uint32_t i = 0; i < matrix.row; i++) {
             for (uint32_t j = 0; j < matrix.column; j++) {
-                format[i, j] = std::to_string(matrix[i, j]);
+                if constexpr (std::is_arithmetic_v<T>) {
+                    format[i, j] = std::format(algebra::detail::FORMAT, static_cast<double>(matrix[i, j]));
+                } else {
+                    format[i, j] = std::to_string(matrix[i, j]);
+                }
                 padding = std::max(padding, static_cast<uint32_t>(format[i, j].size()));
             }
         }
@@ -656,21 +663,21 @@ namespace std {
             const uint32_t separation = matrix.column - matrix.type_param;
             middle[separation * padding + (separation - 1)] = '|';
         }
-        const uint32_t left = padding / 2, right = padding - left;
+        const uint32_t edge = padding / 2;
         std::string res("\n"), border("+"), empty_space("|");
-        border.append(left, '-').append(total_width - left - right, ' ').append(right, '-').push_back('+');
+        border.append(edge, '-').append(total_width - 2 * edge, ' ').append(edge, '-').push_back('+');
         empty_space.append(middle).push_back('|');
 
         if (matrix.type != tensor::Matrix<T>::Type::DETERMINANT) {
-            res.append(border);
+            res.append(border).push_back('\n');
         }
         for (uint32_t i = 0; i < format.row; i++) {
-            res.append("\n|");
+            res.append("|");
 
             for (uint32_t j = 0; j < format.column; j++) {
                 const std::string& val = format[i, j];
                 const uint32_t remaining = padding - val.size();
-                res.append(std::string(remaining / 2, ' ')).append(val).append(std::string(remaining - remaining / 2, ' '));
+                res.append(std::string(remaining - 1, ' ')).append(val).append(" ");
 
                 if (j < format.column - 1) {
                     if (matrix.type == tensor::Matrix<T>::Type::AUGMENTED && j == matrix.column - matrix.type_param - 1) {
@@ -683,10 +690,9 @@ namespace std {
             res.append("|");
 
             if (i < format.row - 1) {
-                res.append("\n").append(empty_space);
+                res.push_back('\n');
             }
         }
-
         if (matrix.type != tensor::Matrix<T>::Type::DETERMINANT) {
             res.append("\n").append(border);
         }

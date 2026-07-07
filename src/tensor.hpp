@@ -1,9 +1,8 @@
 #pragma once
 
-inline std::map<algebra::Variable, algebra::Fraction> tensor::solve_linear_system(const std::vector<algebra::Equation>& equations,
-                                                                                  const Method method) {
-    std::map<algebra::Variable, algebra::Fraction> res;
-    std::vector<algebra::Fraction> values;
+inline std::map<algebra::Variable, double> tensor::solve_linear_system(const std::vector<algebra::Equation>& equations, const Method method) {
+    std::map<algebra::Variable, double> res;
+    std::vector<double> values;
 
     for (const algebra::Equation& equation : equations) {
         GLOBAL_FORMATTING << equation << std::endl;

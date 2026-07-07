@@ -1,11 +1,10 @@
 #pragma once
-#include <set>
 #include "algebra/algebra.hpp"
 
 namespace tensor {
     inline algebra::detail::FormatSettings& GLOBAL_FORMATTING = algebra::GLOBAL_FORMATTING;
 
-    enum class Method : bool {GAUSS, CRAMER};
+    enum class Method : bool { GAUSS, CRAMER };
 
     template <typename>
     class Matrix;
@@ -17,7 +16,7 @@ namespace tensor {
     template <typename T>
     std::ostream& operator<<(std::ostream&, const Vector<T>&);
 
-    std::map<algebra::Variable, algebra::Fraction> solve_linear_system(const std::vector<algebra::Equation>&, Method method = Method::GAUSS);
+    std::map<algebra::Variable, double> solve_linear_system(const std::vector<algebra::Equation>&, Method method = Method::GAUSS);
 
     namespace detail {
         enum class SerialClass : uint8_t { MATRIX, VECTOR };
